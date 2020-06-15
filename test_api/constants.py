@@ -1,0 +1,1 @@
+VALID_ORDER_STATUS = ["pending", "fulfilled"]

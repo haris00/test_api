@@ -1,47 +1,44 @@
 from test_api import ma
 from marshmallow import fields, validate
+from test_api.constants import  VALID_ORDER_STATUS
 
-class InstructorSchema(ma.Schema):
+class CustomerSchema(ma.Schema):
     id = fields.Integer()
     name = fields.String(required=True)
-    title = fields.String(required=True,validate=validate.OneOf(['dr','prof','associate']))
-    #courses = fields.Nested("CourseSchema", many=True)
-    # class Meta:
-    #     # model = Instructor
-    #     fields = ('id','name')
+    email = fields.Email(required=True)
+    phone = fields.String(required=True)
+    joining_date = fields.Date()
 
-class InstructorCoursesSchema(InstructorSchema):
-    courses = fields.Nested("CourseSchema", many=True)
+class CustomerEditSchema(ma.Schema):
+    name = fields.String()
+    email = fields.Email()
+    phone = fields.String()
 
-class StudentSchema(ma.Schema):
+
+class BookSchema(ma.Schema):
     id = fields.Integer()
-    name = fields.String(required=True)
-    program = fields.String(required=True,validate=validate.OneOf(['bachelors','masters','phd']))
-    # class Meta:
-    #     # model = Instructor
-    #     fields = ('id','name','program')
+    author = fields.String(required=True)
+    price = fields.Integer(required=True)
+    stock = fields.Integer(required=True)
+    year_written = fields.Integer(required=True)
 
 
-class CourseSchema(ma.Schema):
+class BookEditSchema(ma.Schema):
+    author = fields.String()
+    price = fields.Integer()
+    stock = fields.Integer()
+
+class BookOrderSchema (ma.Schema):
+    id = fields.Integer(required=True)
+    stock = fields.Integer(required=True)
+
+
+class CustomerOrder(ma.Schema):
+    #status = fields.String(required=True,validate=validate.OneOf(VALID_ORDER_STATUS))
     id = fields.Integer()
-    name = fields.String(required=True)
-    start_date = fields.Date(required=True)
-    end_date = fields.Date(required=True)
-    course_level = fields.String(required=True,validate=validate.OneOf(['bachelors','masters','phd']))
-    max_capacity = fields.Integer()
-    current_students = fields.Integer()
-    # Can have the these too only=("name", "username", "roles", "image"), many=True
-    #instructor = fields.Nested("InstructorSchema")
+    books = fields.Nested("BookOrderSchema", many=True, required=True)
+    date_created = fields.Date()
 
 
-class CourseInstructorSchema(CourseSchema):
-    # Can have the these too only=("name", "username", "roles", "image"), many=True
-    instructor = fields.Nested("InstructorSchema")
-
-
-# class StudentCoursesCourse(ma.Schema):
-#     course = fields.Nested("CourseSchema")
-#
-
-class StudentCoursesSchema(StudentSchema):
-    courses = fields.Nested("CourseSchema", many=True)
+class CustomerOrderList(ma.Schema):
+    orders = fields.Nested("CustomerOrder", many=True)

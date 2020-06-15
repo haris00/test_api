@@ -15,8 +15,20 @@ ma = Marshmallow(app)
 from test_api.models import *
 db.create_all()
 #db.drop_all()
-rest_api = Api(app)
+
+authorizations = {
+    'apikey' : {
+        'type' : 'apiKey',
+        'in' : 'header',
+        'name' : 'X-API-KEY'
+    }
+}
+
+
+rest_api = Api(app, authorizations=authorizations)
 
 
 # import routes
 from test_api import routes, api
+
+

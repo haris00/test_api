@@ -1,62 +1,39 @@
 from test_api import db
-
 from datetime import datetime
 
 
-class Instructor(db.Model):
+class Customer(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(20), unique=True, nullable=False)
-    title = db.Column(db.String(20), nullable=False)
-    # uselist = False (for one to one relationship) and set foreign key in another db to True to make it safe
-    courses = db.relationship('Course', backref='instructor', lazy=True)
+    email = db.Column(db.String(40), nullable=False)
+    phone = db.Column(db.String(15), nullable=False)
+    joining_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    orders = db.relationship('Order', backref='customer', lazy=True)
 
 
-# class StudentCourse(db.Model):
-#     id = db.Column(db.Integer, primary_key=True)
-#     student_id = db.Column('student_id', db.Integer, db.ForeignKey("student.id"), nullable=False)
-#     course_id = db.Column('course_id', db.Integer, db.ForeignKey("course.id"), nullable=False)
-
-StudentCourse = db.Table('student_course',
+OrderBook = db.Table('order_book',
                               db.Column('id',
                                         db.Integer,
                                         primary_key=True),
-                              db.Column('student_id',
+                              db.Column('order_id',
                                         db.Integer,
-                                        db.ForeignKey('student.id', ondelete="cascade")),
-                              db.Column('course_id',
+                                        db.ForeignKey('order.id', ondelete="cascade")),
+                              db.Column('book_id',
                                         db.Integer,
-                                        db.ForeignKey('course.id', ondelete="cascade")))
+                                        db.ForeignKey('book.id', ondelete="cascade")))
 
-class Student(db.Model):
+
+class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(20), unique=True, nullable=False)
-    program = db.Column(db.String(20), nullable=False)
-    courses = db.relationship('Course', secondary=StudentCourse, backref='students', lazy=True)
-
-    # def __repr__(self):
-    #     return f"User('{self.username}', '{self.email}', '{self.image_file}')"
+    date_created = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    customer_id = db.Column('customer_id', db.Integer, db.ForeignKey("customer.id", ondelete='CASCADE'), nullable=True)
+    books = db.relationship('Book', secondary=OrderBook, backref='orders', lazy=True)
 
 
-class Course(db.Model):
+class Book(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(20), unique=True, nullable=False)
-    start_date = db.Column(db.Date, nullable=False)
-    end_date = db.Column(db.Date, nullable=False)
-    course_level = db.Column(db.String(20), nullable=False)
-    max_capacity = db.Column(db.Integer, nullable=False)
-    current_students = db.Column(db.Integer, default=0)
-    instructor_id = db.Column('instructor_id', db.Integer, db.ForeignKey("instructor.id",ondelete='CASCADE'), nullable=True)
-    #course_students = db.relationship('Student', secondary=StudentCourse, backref='courses', lazy=True)
-    #instructor = db.relationship('Instructor', backref='instructor', lazy=True)
-
-
-#obj.query.order_by(obj.name).all()
-#obj.query.filter(db.or_(Obj.name == "haris", Obj.id > 2)).all()
-#obj.query.filter(Obj.name == "haris", Obj.id > 2).all()   THIS WILL BE AND
-#obj.query.limit(2).all()
-#obj.query.offset(2).limit(3).all()   SKIPS OVER 2
-#Course_model.query.filter_by(instructor_id=id).update({Course_model.instructor_id: None})  UPDATE multiple value (delete would delete multiple values)
-# http://www.leeladharan.com/sqlalchemy-query-with-or-and-like-common-filters  (filters)
-
-#db.engine.execute('<SQL QUERY>')
-
+    author = db.Column(db.String(20), unique=True, nullable=False)
+    price = db.Column(db.Integer, nullable=False)
+    stock = db.Column(db.Integer, nullable=False)
+    year_written = db.Column(db.Integer, nullable=False)
+    #orders = db.relationship('Order', backref='customer', lazy=True)

@@ -1,256 +1,266 @@
 from test_api import rest_api
-from test_api.models import Instructor as Instructor_model, Student as Student_model,\
-    Course as Course_model
-from test_api.schema import InstructorSchema, CourseSchema, CourseInstructorSchema, \
-    StudentSchema, StudentCoursesSchema, InstructorCoursesSchema
+from test_api.models import Customer as customer_model, Order as order_model, Book as book_model
+from test_api.schema import CustomerSchema as customer_schema, CustomerEditSchema as customer_edit_schema, \
+    BookSchema as book_schema, BookEditSchema as book_edit_schema, CustomerOrder as customer_order_schema, \
+    CustomerOrderList as customer_order_list_schema
 from test_api import db
 from flask import request
-from flask_restplus import Resource, fields, reqparse
+from flask_restplus import Resource, fields, reqparse, inputs
+from sqlalchemy.orm import load_only
+from functools import wraps
+import re
 from datetime import date, datetime
 
 
-@rest_api.route('/instructors')
-class InstructorsList(Resource):
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+
+        token = None
+
+        if 'X-API-KEY' in request.headers:
+            token = request.headers['X-API-KEY']
+
+        if not token:
+            return {'message' : 'Token is missing.'}, 401
+
+        if token != 'mytoken':
+            return {'message' : 'Your token is wrong, wrong, wrong!!!'}, 401
+
+        print('TOKEN: {}'.format(token))
+        return f(*args, **kwargs)
+
+    return decorated
+
+
+@rest_api.route('/customers')
+class CustomersList(Resource):
     def post(self):
         data = request.get_json(force=True)
-        errors = InstructorSchema().validate(data)
+        errors = customer_schema().validate(data)
         if errors:
             return errors, 422
-        instructor = Instructor_model.query.filter_by(name=data['name']).first()
-        if instructor:
-            return {'message': 'Instructor already exists'}, 400
-        new_instructor = Instructor_model(name=data['name'], title=data['title'])
-        db.session.add(new_instructor)
+        customer = customer_model.query.filter_by(name=data['name']).first()
+        if customer:
+            return {'message': 'Customer already exists'}, 400
+        new_customer = customer_model()
+        for k, v in data.items():
+            if v is not None:
+                setattr(new_customer, k, v)
+        db.session.add(new_customer)
         db.session.commit()
-        result = InstructorSchema().dump(new_instructor)
+        result = customer_schema().dump(new_customer)
         return result, 201
 
+    @token_required
     def get(self):
-        instructors = Instructor_model.query.all()
-        result = InstructorSchema(many=True).dump(instructors)
+        instructors = customer_model.query.all()
+        result = customer_schema(many=True).dump(instructors)
         return result, 200
 
-# instructor_model = rest_api.model('Create Instructor',
-#                              {'name': fields.String(),
-#                               'title': fields.String() }
-#                              )
 
-@rest_api.route('/instructors/<int:id>')
-class Instructors(Resource):
+@rest_api.route('/customers/<int:id>')
+class Customers(Resource):
 
-#   @rest_api.expect(instructor_model, validate=True)
     def put(self, id):
-        parser = reqparse.RequestParser()
-        parser.add_argument('name', type=str)
-        parser.add_argument('title', type=str)
-
-        args = parser.parse_args()
-        instructor = Instructor_model.query.filter_by(id=id).first()
-        if not instructor:
-            return {'message': 'Instructor not found'}, 404
-        for k, v in args.items():
+        data = request.get_json(force=True)
+        errors = customer_edit_schema().validate(data)
+        if errors:
+            return errors, 422
+        customer = customer_model.query.filter_by(id=id).first()
+        if not customer:
+            return {'message': 'Customer not found'}, 404
+        for k, v in data.items():
             if v is not None:
-                setattr(instructor, k, v)
-        db.session.add(instructor)
+                setattr(customer, k, v)
+        db.session.add(customer)
         db.session.commit()
-        result = InstructorSchema().dump(instructor)
+        result = customer_schema().dump(customer)
         return result, 200
 
     def get(self, id):
-        instructor = Instructor_model.query.filter_by(id=id).first()
-        if not instructor:
-            return {'message': 'Instructor not found'}, 404
-        result = InstructorSchema().dump(instructor)
+        customer = customer_model.query.filter_by(id=id).first()
+        if not customer:
+            return {'message': 'Customer not found'}, 404
+        result = customer_schema().dump(customer)
         return result, 200
 
     def delete(self, id):
-        instructor = Instructor_model.query.filter_by(id=id).first()
-        if not instructor:
-            return {'message': 'Instructor not found'}, 404
-        Course_model.query.filter_by(instructor_id=id).update({Course_model.instructor_id: None})
-        Instructor_model.query.filter_by(id=id).delete()
+        customer = customer_model.query.filter_by(id=id).first()
+        if not customer:
+            return {'message': 'Customer not found'}, 404
+        customer_model.query.filter_by(id=id).delete()
         db.session.commit()
         return '', 204
 
 
-@rest_api.route('/students')
-class StudentsList(Resource):
+
+
+#################################################################33
+
+@rest_api.route('/books')
+class BooksList(Resource):
     def post(self):
         data = request.get_json(force=True)
-        errors = StudentSchema().validate(data)
+        errors = book_schema().validate(data)
         if errors:
             return errors, 422
-        student = Student_model.query.filter_by(name=data['name']).first()
-        if student:
-            return {'message': 'Student already exists'}, 400
-        new_student = Student_model(name=data['name'], program=data['program'])
-        db.session.add(new_student)
-        db.session.commit()
-        result = StudentSchema().dump(new_student)
-        return result, 201
-
-    def get(self):
-        students = Student_model.query.all()
-        result = StudentSchema(many=True).dump(students)
-        return result, 200
-
-
-
-
-@rest_api.route('/students/<int:id>')
-class Students(Resource):
-
-#   @rest_api.expect(student_model, validate=True)
-    def put(self, id):
-        parser = reqparse.RequestParser()
-        parser.add_argument('name', type=str)
-        parser.add_argument('program', type=str)
-
-        args = parser.parse_args()
-        student = Student_model.query.filter_by(id=id).first()
-        if not student:
-            return {'message': 'Student not found'}, 404
-        for k, v in args.items():
+        book = book_model.query.filter_by(author=data['author']).first()
+        if book:
+            return {'message': 'Customer already exists'}, 400
+        new_book = book_model()
+        for k, v in data.items():
             if v is not None:
-                setattr(student, k, v)
-        db.session.add(student)
+                setattr(new_book, k, v)
+        db.session.add(new_book)
         db.session.commit()
-        result = StudentSchema().dump(student)
-        return result, 200
-
-    def get(self, id):
-        student = Student_model.query.filter_by(id=id).first()
-        if not student:
-            return {'message': 'Student not found'}, 404
-        result = StudentSchema().dump(student)
-        return result, 200
-
-    def delete(self, id):
-        student = Student_model.query.filter_by(id=id).first()
-        if not student:
-            return {'message': 'Student not found'}, 404
-        Course_model.query.filter_by(id=id).delete()
-        db.session.commit()
-        return '', 204
-
-
-#################### Courses ##############
-
-@rest_api.route('/courses')
-class CoursesList(Resource):
-    def post(self):
-        data = request.get_json(force=True)
-        errors = CourseSchema().validate(data)
-        if errors:
-            return errors, 422
-        course = Course_model.query.filter_by(name=data['name']).first()
-        if course:
-            return {'message': 'Course already exists'}, 400
-        new_course = Course_model(name=data['name'], start_date=data['start_date'], end_date=data['end_date'], course_level=data['course_level'],
-                                  max_capacity= data['max_capacity'])
-        db.session.add(new_course)
-        db.session.commit()
-        result = CourseSchema().dump(new_course)
+        result = book_schema().dump(new_book)
         return result, 201
 
     def get(self):
         parser = reqparse.RequestParser()
-        parser.add_argument('start_date', type=lambda x: datetime.strptime(x, '%Y-%m-%d').date(), location='args')
+        allowed_fields = ["id", "author"]
+        parser.add_argument('fields', type=str, action="split", location='args',default=None)
+                            #choices=allowed_fields)
+        parser.add_argument('limit', type=int, location='args',default=3)
+        parser.add_argument('offset', type=int, location='args',default=0)
+        parser.add_argument('sort', type=str, location='args',default=None, choices=allowed_fields)
 
         args = parser.parse_args()
-        if 'start_date' in args and args['start_date'] is not None:
-            courses = Course_model.query.filter(Course_model.start_date > args['start_date'])
-        else:
-            courses = Course_model.query.all()
-        result = CourseInstructorSchema(many=True).dump(courses)
+        limit = args['limit']
+        offset = args['offset']
+        sort = args['sort']
+        all_fields = args['fields']
+        books = book_model.query.offset(offset).limit(limit)
+        if all_fields:
+            books = books.options(load_only("id", "author"))
+
+        if sort:
+            books = book_model.query.order_by(sort)
+            #.order_by("name desc")
+        result = book_schema(many=True).dump(books.all())
         return result, 200
 
 
+@rest_api.route('/books/<int:id>')
+class Books(Resource):
 
-
-@rest_api.route('/courses/<int:id>')
-class Courses(Resource):
-
-#   @rest_api.expect(course_model, validate=True)
     def put(self, id):
-        parser = reqparse.RequestParser()
-        parser.add_argument('name', type=str)
-        parser.add_argument('course_level', type=str, choices=['bachelors', 'masters', 'phd'])
-        parser.add_argument('max_capacity', type=int)
-        parser.add_argument('start_date', type=lambda x: datetime.strptime(x, '%Y-%m-%d').date())
-        parser.add_argument('end_date', type=lambda x: datetime.strptime(x, '%Y-%m-%d').date())
-
-        args = parser.parse_args()
-        course = Course_model.query.filter_by(id=id).first()
-        if not course:
-            return {'message': 'Course not found'}, 404
-        for k, v in args.items():
+        data = request.get_json(force=True)
+        errors = book_edit_schema().validate(data)
+        if errors:
+            return errors, 422
+        book = book_model.query.filter_by(id=id).first()
+        if not book:
+            return {'message': 'Book not found'}, 404
+        for k, v in data.items():
             if v is not None:
-                setattr(course, k, v)
-        db.session.add(course)
+                setattr(book, k, v)
+        db.session.add(book)
         db.session.commit()
-        result = CourseSchema().dump(course)
+        result = book_schema().dump(book)
         return result, 200
 
     def get(self, id):
-        course = Course_model.query.filter_by(id=id).first()
-        if not course:
-            return {'message': 'Course not found'}, 404
-        result = CourseSchema().dump(course)
+        book = book_model.query.filter_by(id=id).first()
+        if not book:
+            return {'message': 'Book not found'}, 404
+        result = book_schema().dump(book)
         return result, 200
 
     def delete(self, id):
-        course = Course_model.query.filter_by(id=id).first()
-        if not course:
-            return {'message': 'Course not found'}, 404
-        Course_model.query.filter_by(id=id).delete()
+        book = book_model.query.filter_by(id=id).first()
+        if not book:
+            return {'message': 'Book not found'}, 404
+        book_model.query.filter_by(id=id).delete()
         db.session.commit()
         return '', 204
 
-@rest_api.route('/students/<int:student_id>/courses/')
-class StudentCoursesList(Resource):
-    def get(self, student_id):
-        student = Student_model.query.filter_by(id=student_id).first()
-        result = StudentCoursesSchema().dump(student)
+
+##############################################################
+@rest_api.route('/customers/<int:customer_id>/orders')
+class CustomerOrdersList(Resource):
+
+    def post (self, customer_id):
+        data = request.get_json(force=True)
+        errors = customer_order_schema().validate(data)
+        if errors:
+            return errors, 422
+        customer = customer_model.query.filter_by(id=customer_id).first()
+        if not customer:
+            return {'message': 'Customer not found'}, 404
+        new_order = order_model(customer_id=customer_id)
+        for requested_book in data['books']:
+            book = book_model.query.filter_by(id=requested_book['id']).first()
+            if not book:
+                return {'message': 'Book id {0} not found'.format(requested_book['id'])}, 404
+            if book.stock < requested_book['stock']:
+                return {'message': 'Book id {0} not enough books available'.format(book['book_id'])}, 404
+            book.stock = book.stock - requested_book['stock']
+            db.session.add(book)
+            new_order.books.append(book)
+
+        db.session.add(new_order)
+        db.session.commit()
+        result = customer_order_schema().dump(new_order)
         return result, 200
 
-@rest_api.route('/students/<int:student_id>/courses/<int:course_id>')
-class StudentCourses(Resource):
-    def put(self, student_id, course_id):
-        student = Student_model.query.filter_by(id=student_id).first()
-        if not student:
-            return {'message': 'Student not found'}, 404
-        course = Course_model.query.filter_by(id=course_id).first()
-        if not course:
-            return {'message': 'Course not found'}, 404
-
-        if course in student.courses:
-            return {'message': 'Student already registered for the course'}, 200
-        student.courses.append(course)
-        #student_course = StudentCourse_model(student_id=student_id, course_id= course_id)
-        #db.session.add(student_course)
-        db.session.commit()
-        return {'message': 'Course Registered'}, 204
-
-@rest_api.route('/instructors/<int:instructor_id>/courses/')
-class InstructorCourses(Resource):
-    def get(self, instructor_id):
-        instructor = Instructor_model.query.filter_by(id=instructor_id).first()
-        if not instructor:
-            return {'message': 'Instructor not found'}, 404
-        result = InstructorCoursesSchema().dump(instructor)
+    def get(self, customer_id):
+        customer = customer_model.query.filter_by(id=customer_id).first()
+        if not customer:
+            return {'message': 'Customer not found'}, 404
+        result = customer_order_list_schema().dump(customer)
         return result, 200
 
 
-@rest_api.route('/instructors/<int:instructor_id>/courses/<int:course_id>')
-class InstructorCourses(Resource):
-    def put(self, instructor_id, course_id):
-        instructor = Instructor_model.query.filter_by(id=instructor_id).first()
-        if not instructor:
-            return {'message': 'Instructor not found'}, 404
-        course = Course_model.query.filter_by(id=course_id).first()
-        if not course:
-            return {'message': 'Course not found'}, 404
-        course.instructor_id = instructor_id
+@rest_api.route('/orders')
+class OrdersList(Resource):
+    def get(self):
+        orders = order_model.query.all()
+        result = customer_order_schema(many=True).dump(orders)
+        return result, 200
+
+@rest_api.route('/orders/<int:order_id>')
+class Orders(Resource):
+    def delete(self, order_id):
+        order = order_model.query.filter_by(id=order_id)
+        if not order:
+            return {'message': 'Order not found'}, 404
+        order.delete()
         db.session.commit()
-        return {'message': 'Course Assigned'}, 200
+        return '',204
+
+# @rest_api.route('/customers/<int:customer_id>/orders/<int:order_id>')
+# class CustomerOrders(Resource):
+#     # def get(self, customer_id, order_id):
+#     #     customer = customer_model.query.filter_by(id=customer_id).first()
+#     #     if not customer:
+#     #         return {'message': 'Customer not found'}, 404
+#     #     customer = customer_model.query.filter_by(id=customer_id).first()
+#     #     if not customer:
+#     #         return {'message': 'Customer not found'}, 404
+#
+#     def delete(self, customer_id, order_id):
+#         customer = customer_model.query.filter_by(id=customer_id).first()
+#         if not customer:
+#             return {'message': 'Customer not found'}, 404
+#         order = order_model.query.filter_by(id=order_id).first()
+#
+
+# @rest_api.route('/students/<int:student_id>/courses/<int:course_id>')
+# class StudentCourses(Resource):
+#     def put(self, student_id, course_id):
+#         student = Student_model.query.filter_by(id=student_id).first()
+#         if not student:
+#             return {'message': 'Student not found'}, 404
+#         course = Course_model.query.filter_by(id=course_id).first()
+#         if not course:
+#             return {'message': 'Course not found'}, 404
+#
+#         if course in student.courses:
+#             return {'message': 'Student already registered for the course'}, 200
+#         student.courses.append(course)
+#         #student_course = StudentCourse_model(student_id=student_id, course_id= course_id)
+#         #db.session.add(student_course)
+#         db.session.commit()
+#         return {'message': 'Course Registered'}, 204
